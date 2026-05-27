@@ -32,6 +32,19 @@ jobs:
         with:
           go-version: ${{ inputs.go-version }}
 
+      - name: Resolve PR number
+        id: resolve-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR="${{ inputs.pr-number }}"
+          if [ -z "$PR" ]; then
+            PR=$(gh api "repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:${{ github.ref_name }}" \
+              --jq '.[0].number // ""' 2>/dev/null || echo "")
+            echo "Resolved PR number from branch: $PR"
+          fi
+          echo "pr-number=$PR" >> "$GITHUB_OUTPUT"
+
       - name: Download coverage profiles
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
@@ -104,15 +117,15 @@ jobs:
           go tool cover -html=merged-coverage.out -o coverage.html
 
       - name: Save coverage data for PR comment
-        if: inputs.pr-number != '' && steps.coverage.outputs.total != 'N/A'
+        if: steps.resolve-pr.outputs.pr-number != '' && steps.coverage.outputs.total != 'N/A'
         run: |
           mkdir -p coverage-comment-data
-          echo "${{ inputs.pr-number }}" > coverage-comment-data/pr-number.txt
+          echo "${{ steps.resolve-pr.outputs.pr-number }}" > coverage-comment-data/pr-number.txt
           echo "${{ steps.coverage.outputs.total }}" > coverage-comment-data/coverage-total.txt
           echo "${{ github.run_id }}" > coverage-comment-data/run-id.txt
 
       - name: Upload coverage comment data
-        if: inputs.pr-number != '' && steps.coverage.outputs.total != 'N/A'
+        if: steps.resolve-pr.outputs.pr-number != '' && steps.coverage.outputs.total != 'N/A'
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: coverage-comment-data
@@ -120,18 +133,19 @@ jobs:
           retention-days: 1
 
       - name: Post PR comment
-        if: inputs.pr-number != '' && steps.coverage.outputs.total != 'N/A' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+        if: steps.resolve-pr.outputs.pr-number != '' && steps.coverage.outputs.total != 'N/A'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           TOTAL: ${{ steps.coverage.outputs.total }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr-number }}
         run: |
           MARKER="<!-- coverage-report-comment -->"
           BODY=$(printf '%s\n\n### Go Test Coverage: **%s**\n\nSee the [workflow run](https://github.com/%s/actions/runs/%s) for the full per-package breakdown and downloadable HTML report.' \
             "$MARKER" "$TOTAL" "${{ github.repository }}" "${{ github.run_id }}")
 
           COMMENT_ID=$(gh api --paginate \
-            "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
+            "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body // "" | contains("<!-- coverage-report-comment -->"))) | .id' \
             | tail -n1)
 
@@ -143,7 +157,7 @@ jobs:
           else
             gh api \
               --method POST \
-              "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
+              "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -f body="$BODY"
           fi
 
