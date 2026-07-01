@@ -1,0 +1,12 @@
+# Namespaced project name that the target belongs to
+project: consul-terraform-sync
+
+# Target name (should be unique within the project) — preserved from the prior
+# integration for corpus/defect continuity.
+target: consul-terraform-sync
+
+# List of commands used to test the target. libFuzzer targets take no "@@" — Mayhem
+# feeds inputs through the libFuzzer entrypoint directly.
+cmds:
+  - cmd: /mayhem/consul-terraform-sync
+    libfuzzer: true
