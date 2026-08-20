@@ -64,11 +64,12 @@ type servicesRegexQuery struct {
 
 	regexp *regexp.Regexp
 
-	filter   string
-	dc       string
-	ns       string
-	nodeMeta map[string]string
-	opts     hcat.QueryOptions
+	filter           string
+	dc               string
+	ns               string
+	nodeMeta         map[string]string
+	opts             hcat.QueryOptions
+	propagationDelay time.Duration
 }
 
 // newServicesRegexQuery processes options in the format of
@@ -76,7 +77,8 @@ type servicesRegexQuery struct {
 // Any option that is not a key/value pair is assumed to be a filter.
 func newServicesRegexQuery(opts []string) (*servicesRegexQuery, error) {
 	servicesRegexQuery := servicesRegexQuery{
-		stopCh: make(chan struct{}, 1),
+		stopCh:           make(chan struct{}, 1),
+		propagationDelay: 10 * time.Second,
 	}
 	var filters []string
 	for _, opt := range opts {
@@ -203,7 +205,7 @@ func (d *servicesRegexQuery) Fetch(clients dep.Clients) (interface{}, *dep.Respo
 	// Without this delay, CatalogServices may have services that are not yet
 	// propagated to HealthServices as healthy services since services are initially
 	// set as critical. https://www.consul.io/docs/discovery/checks#initial-health-check-status
-	time.Sleep(10 * time.Second)
+	time.Sleep(d.propagationDelay)
 
 	var services []*dep.HealthService
 	for _, s := range matchServices {
