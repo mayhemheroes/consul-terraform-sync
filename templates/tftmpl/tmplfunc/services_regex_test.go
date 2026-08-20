@@ -86,7 +86,6 @@ func TestNewServicesRegexQuery(t *testing.T) {
 
 			if act != nil {
 				act.stopCh = nil
-				act.propagationDelay = 0
 			}
 
 			assert.NoError(t, err, err)
@@ -275,7 +274,6 @@ func TestServicesRegexQuery_Fetch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			d, err := newServicesRegexQuery(tc.i)
 			require.NoError(t, err)
-			d.propagationDelay = 0
 
 			a, _, err := d.Fetch(&testClient{consul: client})
 			require.NoError(t, err)
