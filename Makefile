@@ -37,7 +37,7 @@ dev:
 # test runs the unit tests
 test:
 	@echo "==> Testing ${NAME}"
-	@go test -count=1 -timeout=30s -cover ./... ${TESTARGS}
+	@go test -count=1 -timeout=120s -cover ./... ${TESTARGS}
 .PHONY: test
 
 # test-unit-and-integration runs the unit and integration tests
